@@ -1,4 +1,5 @@
 import {relayPool, generatePrivateKey, getPublicKey, signEvent} from 'nostr-tools';
+import {zeroLeadingBitsCount} from './cryptoutils';
 import {elem, parseTextContent} from './domutil.js';
 import {dateTime, formatTime} from './timeutil.js';
 // curl -H 'accept: application/nostr+json' https://relay.nostr.ch/
@@ -38,6 +39,10 @@ let pubkey = localStorage.getItem('pub_key') || (() => {
   localStorage.setItem('pub_key', pubkey);
   return pubkey;
 })();
+
+// arbitrary difficulty, still experimenting.
+// measured empirically, takes N sec on average to mine a text note event.
+const difficulty = 16;
 
 const subList = [];
 const unSubAll = () => {
@@ -160,9 +165,9 @@ function renderProfile(evt, relay) {
   if (content) {
     profileAbout.textContent = content.about;
     profileName.textContent = content.name;
-    const noxyImg = getNoxyUrl('data', content.picture, evt.id, relay);
+    const noxyImg = validatePow(evt) && getNoxyUrl('data', content.picture, evt.id, relay);
     if (noxyImg) {
-      profileImage.setAttribute('src', getNoxyUrl('data', noxyImg, evt.id, relay));
+      profileImage.setAttribute('src', noxyImg);
       profileImage.hidden = false;
     }
   }
@@ -439,7 +444,7 @@ function createTextNote(evt, relay) {
     ]),
     elem('div', {/* data: isLongContent ? {append: evt.content.slice(280)} : null*/}, [
       ...content,
-      firstLink ? linkPreview(firstLink, evt.id, relay) : ''
+      (firstLink && validatePow(evt)) ? linkPreview(firstLink, evt.id, relay) : '',
     ]),
     elem('button', {
       className: 'btn-inline', name: 'star', type: 'button',
@@ -615,7 +620,7 @@ function setMetadata(evt, relay, content) {
     }
   }
   // update profile images
-  if (user.picture) {
+  if (user.picture && validatePow(evt)) {
     document.body
       .querySelectorAll(`canvas[data-pubkey="${evt.pubkey}"]`)
       .forEach(canvas => (canvas.parentNode.replaceChild(elem('img', {src: user.picture}), canvas)));
@@ -675,7 +680,7 @@ function getMetadata(evt, relay) {
   const name = user?.metadata[relay]?.name;
   const userName = name || evt.pubkey.slice(0, 8);
   const userAbout = user?.metadata[relay]?.about || '';
-  const img = userImg ? elem('img', {
+  const img = (userImg && validatePow(evt)) ? elem('img', {
     alt: `${userName} ${host}`,
     loading: 'lazy',
     src: userImg,
@@ -757,13 +762,13 @@ async function upvote(eventId, eventPubkey) {
       .map(([a, b]) => [a, b]), // drop optional (nip-10) relay and marker fields
     ['e', eventId], ['p', eventPubkey], // last e and p tag is the id and pubkey of the note being reacted to (nip-25)
   ];
-  const newReaction = {
+  const newReaction = await powEvent({
     kind: 7,
     pubkey, // TODO: lib could check that this is the pubkey of the key to sign with
     content: '+',
     tags,
     created_at: Math.floor(Date.now() * 0.001),
-  };
+  }, difficulty);
   const sig = await signEvent(newReaction, privatekey).catch(console.error);
   if (sig) {
     const ev = await pool.publish({...newReaction, sig}, (status, url) => {
@@ -794,13 +799,13 @@ writeForm.addEventListener('submit', async (e) => {
   }
   const replyTo = localStorage.getItem('reply_to');
   const tags = replyTo ? [['e', replyTo, eventRelayMap[replyTo][0]]] : [];
-  const newEvent = {
+  const newEvent = await powEvent({
     kind: 1,
-    pubkey,
     content,
+    pubkey,
     tags,
     created_at: Math.floor(Date.now() * 0.001),
-  };
+  }, difficulty);
   const sig = await signEvent(newEvent, privatekey).catch(onSendError);
   if (sig) {
     const ev = await pool.publish({...newEvent, sig}, (status, url) => {
@@ -936,13 +941,13 @@ profileForm.addEventListener('submit', async (e) => {
   const form = new FormData(profileForm);
   const privatekey = localStorage.getItem('private_key');
 
-  const newProfile = {
+  const newProfile = await powEvent({
     kind: 0,
     pubkey,
     content: JSON.stringify(Object.fromEntries(form)),
-    created_at: Math.floor(Date.now() * 0.001),
     tags: [],
-  };
+    created_at: Math.floor(Date.now() * 0.001),
+  }, difficulty);
   const sig = await signEvent(newProfile, privatekey).catch(console.error);
   if (sig) {
     const ev = await pool.publish({...newProfile, sig}, (status, url) => {
@@ -957,3 +962,52 @@ profileForm.addEventListener('submit', async (e) => {
     }).catch(console.error);
   }
 });
+
+/**
+ * validate proof-of-work of a nostr event per nip-13.
+ * the validation always requires difficulty commitment in the nonce tag.
+ *
+ * @param {EventObj} evt event to validate
+ * TODO: @param {number} targetDifficulty target proof-of-work difficulty
+ */
+function validatePow(evt) {
+  const tag = evt.tags.find(tag => tag[0] === 'nonce');
+  if (!tag) {
+    return false;
+  }
+  const difficultyCommitment = Number(tag[2]);
+  if (!difficultyCommitment || Number.isNaN(difficultyCommitment)) {
+    return false;
+  }
+  return zeroLeadingBitsCount(evt.id) >= difficultyCommitment;
+}
+
+/**
+ * run proof of work in a worker until at least the specified difficulty.
+ * if succcessful, the returned event contains the 'nonce' tag
+ * and the updated created_at timestamp.
+ *
+ * powEvent returns a rejected promise if the funtion runs for longer than timeout.
+ * a zero timeout makes mineEvent run without a time limit.
+ */
+function powEvent(evt, difficulty, timeout) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker('./worker.js');
+
+    worker.onmessage = (msg) => {
+      worker.terminate();
+      if (msg.data.error) {
+        reject(msg.data.error);
+      } else {
+        resolve(msg.data.event);
+      }
+    };
+
+    worker.onerror = (err) => {
+      worker.terminate();
+      reject(err);
+    };
+
+    worker.postMessage({event: evt, difficulty, timeout});
+  });
+}

@@ -20,6 +20,7 @@ export const options = {
     'src/main.css',
     'src/main.js',
     'src/manifest.json',
+    'src/worker.js',
   ],
   outdir: 'dist',
   //entryNames: '[name]-[hash]', TODO: replace urls in index.html with hashed paths
