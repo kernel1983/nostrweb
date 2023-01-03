@@ -10,14 +10,14 @@ function mine(event, difficulty, timeout = 5) {
   let n = BigInt(0);
   event.tags.unshift(['nonce', n.toString(), `${difficulty}`]);
 
-  const start = Math.floor(Date.now() * 0.001);
+  const until = Math.floor(Date.now() * 0.001) + timeout;
   console.time('pow');
   while (true) {
     const now = Math.floor(Date.now() * 0.001);
-    // if (now > start + 15) {
-    //   console.timeEnd('pow');
-    //   return false;
-    // }
+    if (timeout !== 0 && (now > until)) {
+      console.timeEnd('pow');
+      throw 'timeout';
+    }
     if (now !== event.created_at) {
       event.created_at = now;
       // n = BigInt(0); // could reset nonce as we have a new timestamp
@@ -25,7 +25,6 @@ function mine(event, difficulty, timeout = 5) {
     event.tags[0][1] = (++n).toString();
     const id = getEventHash(event);
     if (zeroLeadingBitsCount(id) === difficulty) {
-      console.log(event.tags[0][1], id);
       console.timeEnd('pow');
       return event;
     }
@@ -33,11 +32,7 @@ function mine(event, difficulty, timeout = 5) {
 }
 
 addEventListener('message', async (msg) => {
-  const {
-    difficulty,
-    event,
-    timeout,
-  } = msg.data;
+  const {difficulty, event, timeout} = msg.data;
   try {
     const minedEvent = mine(event, difficulty, timeout);
     postMessage({event: minedEvent});

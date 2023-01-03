@@ -43,7 +43,7 @@ input[type="radio"]:checked + label {
 }
 
 .tab-content {
-  max-width: 96ch;
+  max-width: var(--max-width);
   min-height: 200px;
   padding: calc(.5 * var(--gap)) 0 100px 0;
 }

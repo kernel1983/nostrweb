@@ -1,0 +1,36 @@
+#errorOverlay {
+  background: var(--bgcolor-danger);
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  left: 0;
+  overflow: auto;
+  padding: var(--gap);
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 100;
+}
+
+.error-title {
+  margin-top: 0;
+}
+
+#errorOverlay button {
+  background-color: rgba(0 0 0 / .5);
+  border: none;
+  display: inline-block;
+}
+#errorOverlay button:focus {
+  outline: 2px solid white;
+  outline-offset: var(--focus-outline-offset);
+}
+
+#errorOverlay .buttons {
+  max-width: var(--max-width);
+}
+@media (orientation: portrait) {
+  #errorOverlay .buttons {
+    flex-basis: 4rem;
+  }
+}

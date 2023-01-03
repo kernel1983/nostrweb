@@ -2,6 +2,7 @@
 @import "cards.css";
 @import "form.css";
 @import "write.css";
+@import "error.css";
 
 :root {
   /* 5px auto Highlight */
@@ -14,6 +15,7 @@
   --focus-outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
   --font-small: 1.2rem;
   --gap: 2.4rem;
+  --max-width: 96ch;
 }
 
 ::selection {

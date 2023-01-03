@@ -729,6 +729,9 @@ function appendReplyForm(el) {
   requestAnimationFrame(() => writeInput.focus());
 }
 
+const lockScroll = () => document.body.style.overflow = 'hidden';
+const unlockScroll = () => document.body.style.removeProperty('overflow');
+
 const newMessageDiv = document.querySelector('#newMessage');
 document.querySelector('#bubble').addEventListener('click', (e) => {
   localStorage.removeItem('reply_to'); // should it forget old replyto context?
@@ -738,7 +741,7 @@ document.querySelector('#bubble').addEventListener('click', (e) => {
   if (writeInput.value.trimRight()) {
     writeInput.style.removeProperty('height');
   }
-  document.body.style.overflow = 'hidden';
+  lockScroll();
   requestAnimationFrame(() => updateElemHeight(writeInput));
 });
 
@@ -749,7 +752,7 @@ document.body.addEventListener('keyup', (e) => {
 });
 
 function hideNewMessage(hide) {
-  document.body.style.removeProperty('overflow');
+  unlockScroll();
   newMessageDiv.hidden = hide;
 }
 
@@ -768,17 +771,19 @@ async function upvote(eventId, eventPubkey) {
     content: '+',
     tags,
     created_at: Math.floor(Date.now() * 0.001),
-  }, difficulty);
-  const sig = await signEvent(newReaction, privatekey).catch(console.error);
-  if (sig) {
-    const ev = await pool.publish({...newReaction, sig}, (status, url) => {
-      if (status === 0) {
-        console.info(`publish request sent to ${url}`);
-      }
-      if (status === 1) {
-        console.info(`event published by ${url}`);
-      }
-    }).catch(console.error);
+  }, difficulty, 10).catch(console.warn);
+  if (newReaction) {
+    const sig = await signEvent(newReaction, privatekey).catch(console.error);
+    if (sig) {
+      const ev = await pool.publish({...newReaction, sig}, (status, url) => {
+        if (status === 0) {
+          console.info(`publish request sent to ${url}`);
+        }
+        if (status === 1) {
+          console.info(`event published by ${url}`);
+        }
+      }).catch(console.error);
+    }
   }
 }
 
@@ -805,26 +810,28 @@ writeForm.addEventListener('submit', async (e) => {
     pubkey,
     tags,
     created_at: Math.floor(Date.now() * 0.001),
-  }, difficulty);
-  const sig = await signEvent(newEvent, privatekey).catch(onSendError);
-  if (sig) {
-    const ev = await pool.publish({...newEvent, sig}, (status, url) => {
-      if (status === 0) {
-        console.info(`publish request sent to ${url}`);
-      }
-      if (status === 1) {
-        sendStatus.textContent = '';
-        writeInput.value = '';
-        writeInput.style.removeProperty('height');
-        publish.disabled = true;
-        if (replyTo) {
-          localStorage.removeItem('reply_to');
-          newMessageDiv.append(writeForm);
+  }, difficulty, 10).catch(console.warn);
+  if (newEvent) {
+    const sig = await signEvent(newEvent, privatekey).catch(onSendError);
+    if (sig) {
+      const ev = await pool.publish({...newEvent, sig}, (status, url) => {
+        if (status === 0) {
+          console.info(`publish request sent to ${url}`);
         }
-        hideNewMessage(true);
-        // console.info(`event published by ${url}`, ev);
-      }
-    });
+        if (status === 1) {
+          sendStatus.textContent = '';
+          writeInput.value = '';
+          writeInput.style.removeProperty('height');
+          publish.disabled = true;
+          if (replyTo) {
+            localStorage.removeItem('reply_to');
+            newMessageDiv.append(writeForm);
+          }
+          hideNewMessage(true);
+          // console.info(`event published by ${url}`, ev);
+        }
+      });
+    }
   }
 });
 
@@ -947,21 +954,56 @@ profileForm.addEventListener('submit', async (e) => {
     content: JSON.stringify(Object.fromEntries(form)),
     tags: [],
     created_at: Math.floor(Date.now() * 0.001),
-  }, difficulty);
-  const sig = await signEvent(newProfile, privatekey).catch(console.error);
-  if (sig) {
-    const ev = await pool.publish({...newProfile, sig}, (status, url) => {
-      if (status === 0) {
-        console.info(`publish request sent to ${url}`);
-      }
-      if (status === 1) {
-        profileStatus.textContent = 'profile metadata successfully published';
-        profileStatus.hidden = false;
-        profileSubmit.disabled = true;
-      }
-    }).catch(console.error);
+  }, difficulty, 10).catch(console.warn);
+  if (newProfile) {
+    const sig = await signEvent(newProfile, privatekey).catch(console.error);
+    if (sig) {
+      const ev = await pool.publish({...newProfile, sig}, (status, url) => {
+        if (status === 0) {
+          console.info(`publish request sent to ${url}`);
+        }
+        if (status === 1) {
+          profileStatus.textContent = 'profile metadata successfully published';
+          profileStatus.hidden = false;
+          profileSubmit.disabled = true;
+        }
+      }).catch(console.error);
+    }
   }
 });
+
+const errorOverlay = document.querySelector('#errorOverlay');
+
+function promptError(error, options = {}) {
+  const {onAgain, onCancel} = options;
+  lockScroll();
+  errorOverlay.replaceChildren(
+    elem('h1', {className: 'error-title'}, error),
+    elem('p', {}, 'something went wrong'),
+    elem('div', {className: 'buttons'}, [
+      onCancel ? elem('button', {data: {action: 'close'}}, 'close') : '',
+      onAgain ? elem('button', {data: {action: 'again'}}, 'try again') : '',
+    ]),
+  );
+  const handleOverlayClick = (e) => {
+    const button = e.target.closest('button');
+    if (button) {
+      switch(button.dataset.action) {
+        case 'close':
+          onCancel();
+          break;
+        case 'again':
+          onAgain();
+          break;
+      }
+      errorOverlay.removeEventListener('click', handleOverlayClick);
+      errorOverlay.hidden = true;
+      unlockScroll();
+    }
+  };
+  errorOverlay.addEventListener('click', handleOverlayClick);
+  errorOverlay.hidden = false;
+}
 
 /**
  * validate proof-of-work of a nostr event per nip-13.
@@ -990,14 +1032,20 @@ function validatePow(evt) {
  * powEvent returns a rejected promise if the funtion runs for longer than timeout.
  * a zero timeout makes mineEvent run without a time limit.
  */
-function powEvent(evt, difficulty, timeout) {
+function powEvent(evt, difficulty, timeout = 0) {
   return new Promise((resolve, reject) => {
     const worker = new Worker('./worker.js');
 
     worker.onmessage = (msg) => {
       worker.terminate();
       if (msg.data.error) {
-        reject(msg.data.error);
+        promptError(msg.data.error, {
+          onCancel: () => reject('canceled'),
+          onAgain: async () => {
+            const result = await powEvent(evt, difficulty, timeout).catch(console.warn);
+            resolve(result);
+          }
+        })
       } else {
         resolve(msg.data.event);
       }
