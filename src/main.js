@@ -484,7 +484,7 @@ function handleReply(evt, relay) {
 }
 
 function renderReply(evt, relay) {
-  const eventId = evt.tags[0][1]; // TODO: double check
+  const eventId = evt.tags.filter(hasEventTag)[0][1]; // TODO: should check for 'reply' marker with fallback to 'root' marker or last 'e' tag, see nip-10
   const article = feedDomMap[eventId] || replyDomMap[eventId];
   if (!article) { // root article has not been rendered
     return;
@@ -687,7 +687,7 @@ function getMetadata(evt, relay) {
     title: `${userName} on ${host} ${userAbout}`,
   }) : elemCanvas(evt.pubkey);
   const isReply = evt.tags.some(hasEventTag);
-  const replies = replyList.filter((reply) => reply.tags[0][1] === evt.id);
+  const replies = replyList.filter(({tags}) => tags.filter(hasEventTag).some(reply => reply[1] === evt.id)); // TODO: nip-10
   const time = new Date(evt.created_at * 1000);
   return {host, img, isReply, name, replies, time, userName};
 }
