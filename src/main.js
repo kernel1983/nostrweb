@@ -40,10 +40,6 @@ let pubkey = localStorage.getItem('pub_key') || (() => {
   return pubkey;
 })();
 
-// arbitrary difficulty, still experimenting.
-// measured empirically, takes N sec on average to mine a text note event.
-const difficulty = 16;
-
 const subList = [];
 const unSubAll = () => {
   subList.forEach(sub => sub.unsub());
@@ -756,6 +752,23 @@ function hideNewMessage(hide) {
   newMessageDiv.hidden = hide;
 }
 
+// arbitrary difficulty default, still experimenting.
+let difficulty = JSON.parse(localStorage.getItem('mining_target')) ?? 16;
+const miningTargetInput = document.querySelector('#miningTarget');
+miningTargetInput.addEventListener('input', (e) => {
+  localStorage.setItem('mining_target', miningTargetInput.valueAsNumber);
+  difficulty = miningTargetInput.valueAsNumber;
+});
+miningTargetInput.value = difficulty;
+
+let timeout = JSON.parse(localStorage.getItem('mining_timeout')) ?? 5;
+const miningTimeoutInput = document.querySelector('#miningTimeout');
+miningTimeoutInput.addEventListener('input', (e) => {
+  localStorage.setItem('mining_timeout', miningTimeoutInput.valueAsNumber);
+  timeout = miningTimeoutInput.valueAsNumber;
+});
+miningTimeoutInput.value = timeout;
+
 async function upvote(eventId, eventPubkey) {
   const privatekey = localStorage.getItem('private_key');
   const note = replyList.find(r => r.id === eventId) || textNoteList.find(n => n.id === (eventId));
@@ -771,7 +784,7 @@ async function upvote(eventId, eventPubkey) {
     content: '+',
     tags,
     created_at: Math.floor(Date.now() * 0.001),
-  }, difficulty, 10).catch(console.warn);
+  }, difficulty, timeout).catch(console.warn);
   if (newReaction) {
     const sig = await signEvent(newReaction, privatekey).catch(console.error);
     if (sig) {
@@ -810,7 +823,7 @@ writeForm.addEventListener('submit', async (e) => {
     pubkey,
     tags,
     created_at: Math.floor(Date.now() * 0.001),
-  }, difficulty, 10).catch(console.warn);
+  }, difficulty, timeout).catch(console.warn);
   if (newEvent) {
     const sig = await signEvent(newEvent, privatekey).catch(onSendError);
     if (sig) {
@@ -954,7 +967,7 @@ profileForm.addEventListener('submit', async (e) => {
     content: JSON.stringify(Object.fromEntries(form)),
     tags: [],
     created_at: Math.floor(Date.now() * 0.001),
-  }, difficulty, 10).catch(console.warn);
+  }, difficulty, timeout).catch(console.warn);
   if (newProfile) {
     const sig = await signEvent(newProfile, privatekey).catch(console.error);
     if (sig) {
@@ -1031,8 +1044,12 @@ function validatePow(evt) {
  *
  * powEvent returns a rejected promise if the funtion runs for longer than timeout.
  * a zero timeout makes mineEvent run without a time limit.
+ * a zero mining target just resolves the promise without trying to find a 'nonce'.
  */
-function powEvent(evt, difficulty, timeout = 0) {
+function powEvent(evt, difficulty, timeout) {
+  if (difficulty === 0) {
+    return Promise.resolve(evt);
+  }
   return new Promise((resolve, reject) => {
     const worker = new Worker('./worker.js');
 

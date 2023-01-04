@@ -83,6 +83,27 @@
               <button type="submit" name="publish" tabindex="0" disabled>publish</button>
             </div>
           </form>
+          <form action="#" name="options">
+            <label class="number" for="miningTarget">
+              <span>
+                mining difficulty<br>
+                <small>
+                  with which difficulty to try to mine a proof of work when publishing events, such as: notes, replies, reactions and profile updates.
+                  use zero to disable mining.
+                  difficulty is defined as the number of leading zero bits, read more about
+                  <a href="https://github.com/nostr-protocol/nips/blob/master/13.md" target="_blank" rel="noopener noreferrer">proof of work (nip-13)</a>.
+                </small>
+              </span>
+              <input type="number" name="mining_target" step="1" min="0" max="256" id="miningTarget" value="16">
+            </label>
+            <label class="number" for="miningTimeout">
+              <span>
+                mining timeout<br>
+                <small>abort trying to find a proof if timeout (in seconds) exceeds. use 0 to mine without a time limit.</small>
+              </span>
+              <input type="number" name="mining_timeout" step="1" min="0" max="256" id="miningTimeout" value="5">
+            </label>
+          </form>
           <form action="#" name="settings" autocomplete="new-password">
             <label for="pubkey">public-key</label>
             <input type="text" id="pubkey" autocomplete="off">

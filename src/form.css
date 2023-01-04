@@ -43,6 +43,7 @@ label {
   transition: background-color var(--transition-duration);
 }
 
+input[type="number"],
 input[type="password"],
 input[type="text"],
 input[type="url"],
@@ -54,6 +55,7 @@ textarea {
   margin: 0 0 1.2rem 0;
   padding: var(--padding);
 }
+input[type="number"]:focus,
 input[type="password"]:focus,
 input[type="text"]:focus,
 input[type="url"]:focus,
@@ -169,11 +171,13 @@ button:disabled {
   margin-left: var(--gap);
 }
 .form-inline button,
+.form-inline input[type="number"],
 .form-inline input[type="text"],
 .form-inline textarea {
   margin: .4rem 0;
 }
 
+.form-inline input[type="number"],
 .form-inline input[type="text"],
 .form-inline textarea {
   flex-basis: 50%;
@@ -185,6 +189,46 @@ button:disabled {
 
 .form-inline button {
   flex-grow: 0;
+}
+
+label.number {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: var(--gap);
+  padding: 0;
+}
+* + label.number {
+  margin: var(--gap) 0 0 0;
+}
+label.number span {
+  flex-grow: 1;
+  padding: 0 0 0 var(--padding);
+}
+label.number input[type="number"] {
+  align-self: baseline;
+  margin-bottom: 0;
+}
+@media (orientation: landscape) {
+  label.number span {
+    align-self: center;
+  }
+  label.number input[type="number"] + span {
+    padding: 0 var(--padding) 0 0;
+  }
+}
+@media (orientation: portrait) {
+  label.number {
+    flex-direction: column;
+    gap: var(--gap-half);
+    padding: 0;
+  }
+  label.number span {
+    padding: 0 var(--padding);
+  }
+  label.number input[type="number"] {
+    align-self: stretch;
+  }
 }
 
 button#publish {
