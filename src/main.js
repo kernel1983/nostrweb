@@ -221,7 +221,7 @@ document.body.addEventListener('click', (e) => {
     return;
   }
   if (button && button.name === 'star') {
-    upvote(id, relay)
+    upvote(id, pubkey);
     return;
   }
   if (button && button.name === 'back') {
@@ -272,7 +272,7 @@ function handleTextNote(evt, relay) {
   }
 }
 
-const replyList = [];
+const replyList = []; // could use textNoteList with isReply field
 const reactionMap = {};
 
 const getReactionList = (id) => {
@@ -280,23 +280,13 @@ const getReactionList = (id) => {
 };
 
 function handleReaction(evt, relay) {
-  if (!evt.content.length) {
-    // console.log('reaction with no content', evt)
+  // last id is the note that is being reacted to https://github.com/nostr-protocol/nips/blob/master/25.md
+  const lastEventTag = evt.tags.filter(hasEventTag).at(-1);
+  if (!lastEventTag || !evt.content.length) {
+    // ignore reactions with no content
     return;
   }
-  const eventTags = evt.tags.filter(hasEventTag);
-  let replies = eventTags.filter(([tag, eventId, relayUrl, marker]) => marker === 'reply');
-  if (replies.length === 0) {
-    // deprecated https://github.com/nostr-protocol/nips/blob/master/10.md#positional-e-tags-deprecated
-    replies = eventTags.filter((tags) => tags[3] === undefined);
-  }
-  if (replies.length !== 1) {
-    console.log('call me', evt);
-    return;
-  }
-
-  const [tag, eventId/*, relayUrl, marker*/] = replies[0];
-
+  const [, eventId] = lastEventTag;
   if (reactionMap[eventId]) {
     if (reactionMap[eventId].find(reaction => reaction.id === evt.id)) {
       // already received this reaction from a different relay
@@ -758,13 +748,20 @@ function hideNewMessage(hide) {
   newMessageDiv.hidden = hide;
 }
 
-async function upvote(eventId, relay) {
+async function upvote(eventId, eventPubkey) {
   const privatekey = localStorage.getItem('private_key');
+  const note = replyList.find(r => r.id === eventId) || textNoteList.find(n => n.id === (eventId));
+  const tags = [
+    ...note.tags
+      .filter(tag => ['e', 'p'].includes(tag[0])) // take e and p tags from event
+      .map(([a, b]) => [a, b]), // drop optional (nip-10) relay and marker fields
+    ['e', eventId], ['p', eventPubkey], // last e and p tag is the id and pubkey of the note being reacted to (nip-25)
+  ];
   const newReaction = {
     kind: 7,
     pubkey, // TODO: lib could check that this is the pubkey of the key to sign with
     content: '+',
-    tags: [['e', eventId, relay, 'reply']],
+    tags,
     created_at: Math.floor(Date.now() * 0.001),
   };
   const sig = await signEvent(newReaction, privatekey).catch(console.error);
