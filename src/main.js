@@ -217,7 +217,7 @@ document.body.addEventListener('click', (e) => {
       writeInput.blur();
       return;
     }
-    appendReplyForm(button);
+    appendReplyForm(button.closest('.buttons'));
     localStorage.setItem('reply_to', id);
     return;
   }
@@ -442,26 +442,24 @@ function createTextNote(evt, relay) {
       ...content,
       (firstLink && validatePow(evt)) ? linkPreview(firstLink, evt.id, relay) : '',
     ]),
-    elem('button', {
-      className: 'btn-inline', name: 'star', type: 'button',
-      data: {'eventId': evt.id, relay},
-    }, [
-      elem('img', {
-        alt: didReact ? '✭' : '✩', // ♥
-        height: 24, width: 24,
-        src: `assets/${didReact ? 'star-fill' : 'star'}.svg`,
-        title: getReactionList(evt.id).join(' '),
-      }),
-      elem('small', {data: {reactions: evt.id}}, hasReactions ? reactionMap[evt.id].length : ''),
+    elem('div', {className: 'buttons'}, [
+      elem('button', {name: 'reply', type: 'button'}, [
+        elem('img', {height: 24, width: 24, src: 'assets/comment.svg'})
+      ]),
+      elem('button', {name: 'star', type: 'button'}, [
+        elem('img', {
+          alt: didReact ? '✭' : '✩', // ♥
+          height: 24, width: 24,
+          src: `assets/${didReact ? 'star-fill' : 'star'}.svg`,
+          title: getReactionList(evt.id).join(' '),
+        }),
+        elem('small', {data: {reactions: ''}}, hasReactions ? reactionMap[evt.id].length : ''),
+      ]),
     ]),
-    elem('button', {
-      className: 'btn-inline', name: 'reply', type: 'button',
-      data: {'eventId': evt.id, relay},
-    }, [elem('img', {height: 24, width: 24, src: 'assets/comment.svg'})]),
     // replies[0] ? elem('div', {className: 'mobx-replies'}, replyFeed.reverse()) : '',
   ]);
   if (restoredReplyTo === evt.id) {
-    appendReplyForm(body.querySelector('button[name="reply"]'));
+    appendReplyForm(body.querySelector('.buttons'));
     requestAnimationFrame(() => updateElemHeight(writeInput));
   }
   return renderArticle([
@@ -770,7 +768,6 @@ miningTimeoutInput.addEventListener('input', (e) => {
 miningTimeoutInput.value = timeout;
 
 async function upvote(eventId, eventPubkey) {
-  const privatekey = localStorage.getItem('private_key');
   const note = replyList.find(r => r.id === eventId) || textNoteList.find(n => n.id === (eventId));
   const tags = [
     ...note.tags
@@ -778,25 +775,35 @@ async function upvote(eventId, eventPubkey) {
       .map(([a, b]) => [a, b]), // drop optional (nip-10) relay and marker fields
     ['e', eventId], ['p', eventPubkey], // last e and p tag is the id and pubkey of the note being reacted to (nip-25)
   ];
+  const article = (feedDomMap[eventId] || replyDomMap[eventId]);
+  const reactionBtn = article.querySelector('[name="star"]');
+  const statusElem = article.querySelector('[data-reactions]');
+  reactionBtn.disabled = true;
   const newReaction = await powEvent({
     kind: 7,
     pubkey, // TODO: lib could check that this is the pubkey of the key to sign with
     content: '+',
     tags,
     created_at: Math.floor(Date.now() * 0.001),
-  }, difficulty, timeout).catch(console.warn);
-  if (newReaction) {
-    const sig = await signEvent(newReaction, privatekey).catch(console.error);
-    if (sig) {
-      const ev = await pool.publish({...newReaction, sig}, (status, url) => {
-        if (status === 0) {
-          console.info(`publish request sent to ${url}`);
-        }
-        if (status === 1) {
-          console.info(`event published by ${url}`);
-        }
-      }).catch(console.error);
-    }
+  }, {difficulty, statusElem, timeout}).catch(console.warn);
+  if (!newReaction) {
+    statusElem.textContent = reactionMap[eventId]?.length;
+    reactionBtn.disabled = false;
+    return;
+  }
+  const privatekey = localStorage.getItem('private_key');
+  const sig = await signEvent(newReaction, privatekey).catch(console.error);
+  if (sig) {
+    statusElem.textContent = 'publishing…';
+    const ev = await pool.publish({...newReaction, sig}, (status, url) => {
+      if (status === 0) {
+        console.info(`publish request sent to ${url}`);
+      }
+      if (status === 1) {
+        console.info(`event published by ${url}`);
+      }
+    }).catch(console.error);
+    reactionBtn.disabled = false;
   }
 }
 
@@ -816,6 +823,17 @@ writeForm.addEventListener('submit', async (e) => {
     return onSendError(new Error('message is empty'));
   }
   const replyTo = localStorage.getItem('reply_to');
+  const close = () => {
+    sendStatus.textContent = '';
+    writeInput.value = '';
+    writeInput.style.removeProperty('height');
+    publish.disabled = true;
+    if (replyTo) {
+      localStorage.removeItem('reply_to');
+      newMessageDiv.append(writeForm);
+    }
+    hideNewMessage(true);
+  };
   const tags = replyTo ? [['e', replyTo, eventRelayMap[replyTo][0]]] : [];
   const newEvent = await powEvent({
     kind: 1,
@@ -823,28 +841,23 @@ writeForm.addEventListener('submit', async (e) => {
     pubkey,
     tags,
     created_at: Math.floor(Date.now() * 0.001),
-  }, difficulty, timeout).catch(console.warn);
-  if (newEvent) {
-    const sig = await signEvent(newEvent, privatekey).catch(onSendError);
-    if (sig) {
-      const ev = await pool.publish({...newEvent, sig}, (status, url) => {
-        if (status === 0) {
-          console.info(`publish request sent to ${url}`);
-        }
-        if (status === 1) {
-          sendStatus.textContent = '';
-          writeInput.value = '';
-          writeInput.style.removeProperty('height');
-          publish.disabled = true;
-          if (replyTo) {
-            localStorage.removeItem('reply_to');
-            newMessageDiv.append(writeForm);
-          }
-          hideNewMessage(true);
-          // console.info(`event published by ${url}`, ev);
-        }
-      });
-    }
+  }, {difficulty, statusElem: sendStatus, timeout}).catch(console.warn);
+  if (!newEvent) {
+    close();
+    return;
+  }
+  const sig = await signEvent(newEvent, privatekey).catch(onSendError);
+  if (sig) {
+    sendStatus.textContent = 'publishing…';
+    const ev = await pool.publish({...newEvent, sig}, (status, url) => {
+      if (status === 0) {
+        console.info(`publish request sent to ${url}`);
+      }
+      if (status === 1) {
+        close();
+        // console.info(`event published by ${url}`, ev);
+      }
+    });
   }
 });
 
@@ -959,29 +972,31 @@ profileForm.addEventListener('input', (e) => {
 profileForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = new FormData(profileForm);
-  const privatekey = localStorage.getItem('private_key');
-
   const newProfile = await powEvent({
     kind: 0,
     pubkey,
     content: JSON.stringify(Object.fromEntries(form)),
     tags: [],
     created_at: Math.floor(Date.now() * 0.001),
-  }, difficulty, timeout).catch(console.warn);
-  if (newProfile) {
-    const sig = await signEvent(newProfile, privatekey).catch(console.error);
-    if (sig) {
-      const ev = await pool.publish({...newProfile, sig}, (status, url) => {
-        if (status === 0) {
-          console.info(`publish request sent to ${url}`);
-        }
-        if (status === 1) {
-          profileStatus.textContent = 'profile metadata successfully published';
-          profileStatus.hidden = false;
-          profileSubmit.disabled = true;
-        }
-      }).catch(console.error);
-    }
+  }, {difficulty, statusElem: profileStatus, timeout}).catch(console.warn);
+  if (!newProfile) {
+    profileStatus.textContent = 'publishing profile data canceled';
+    profileStatus.hidden = false;
+    return;
+  }
+  const privatekey = localStorage.getItem('private_key');
+  const sig = await signEvent(newProfile, privatekey).catch(console.error);
+  if (sig) {
+    const ev = await pool.publish({...newProfile, sig}, (status, url) => {
+      if (status === 0) {
+        console.info(`publish request sent to ${url}`);
+      }
+      if (status === 1) {
+        profileStatus.textContent = 'profile metadata successfully published';
+        profileStatus.hidden = false;
+        profileSubmit.disabled = true;
+      }
+    }).catch(console.error);
   }
 });
 
@@ -1046,20 +1061,31 @@ function validatePow(evt) {
  * a zero timeout makes mineEvent run without a time limit.
  * a zero mining target just resolves the promise without trying to find a 'nonce'.
  */
-function powEvent(evt, difficulty, timeout) {
+function powEvent(evt, options) {
+  const {difficulty, statusElem, timeout} = options;
   if (difficulty === 0) {
     return Promise.resolve(evt);
   }
+  const cancelBtn = elem('button', {className: 'btn-inline'}, [elem('small', {}, 'cancel')]);
+  statusElem.replaceChildren('working…', cancelBtn);
+  statusElem.hidden = false;
   return new Promise((resolve, reject) => {
     const worker = new Worker('./worker.js');
 
+    const onCancel = () => {
+      worker.terminate();
+      reject('canceled');
+    };
+    cancelBtn.addEventListener('click', onCancel);
+
     worker.onmessage = (msg) => {
       worker.terminate();
+      cancelBtn.removeEventListener('click', onCancel);
       if (msg.data.error) {
         promptError(msg.data.error, {
           onCancel: () => reject('canceled'),
           onAgain: async () => {
-            const result = await powEvent(evt, difficulty, timeout).catch(console.warn);
+            const result = await powEvent(evt, {difficulty, statusElem, timeout}).catch(console.warn);
             resolve(result);
           }
         })
@@ -1070,6 +1096,7 @@ function powEvent(evt, difficulty, timeout) {
 
     worker.onerror = (err) => {
       worker.terminate();
+      cancelBtn.removeEventListener('click', onCancel);
       reject(err);
     };
 

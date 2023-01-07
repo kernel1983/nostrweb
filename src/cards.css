@@ -97,6 +97,16 @@
   overflow: visible;
   position: relative;
 }
+.mbox .buttons {
+  margin-top: .2rem;
+}
+.mbox button:not(#publish) {
+  --bg-color: none;
+  --border-color: none;
+}
+.mbox button img + small {
+  padding-left: .5rem;
+}
 .mobx-replies {
   flex-grow: 1;
   position: relative;

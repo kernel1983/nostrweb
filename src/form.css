@@ -97,14 +97,22 @@ textarea:focus {
   align-items: center;
   display: flex;
   flex-basis: 100%;
-  justify-content: flex-end;
   gap: var(--gap);
-  margin-top: 2rem;
+  justify-content: start;
+  margin-top: var(--gap-half);
   min-height: 3.2rem;
 }
+form .buttons,
+.form .buttons,
 .form-inline .buttons {
   flex-basis: fit-content;
-  margin-top: 0;
+  justify-content: end;
+}
+
+.buttons img,
+.buttons small,
+.buttons span {
+  vertical-align: middle;
 }
 
 button {
@@ -123,24 +131,11 @@ button:focus {
 
 .btn-inline {
   --border-color: transparent;
-  align-items: center;
   background: transparent;
-  color: var(--color);
-  display: inline-flex;
-  gap: .5ch;
+  color: var(--color-accent);
+  display: inline-block;
   line-height: 1;
-  padding: .6rem;
-}
-.btn-inline img {
-  max-height: 18px;
-  max-width: 18px;
-}
-.btn-inline img[alt] {
-  color: #7f7f7f;
-  line-height: 1px;
-}
-.btn-inline img[alt]::before {
-  font-size: 3.4rem;
+  padding: 0 .6rem;
 }
 
 .btn-danger {
@@ -156,6 +151,7 @@ button:disabled {
 .form-status {
   flex-basis: 100%;
   flex-grow: 1;
+  min-height: 1.8rem;
   padding: var(--padding);
 }
 
