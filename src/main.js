@@ -500,17 +500,25 @@ const sortEventCreatedAt = (created_at) => (
   Math.abs(a - created_at) < Math.abs(b - created_at) ? -1 : 1
 );
 
+function isWssUrl(string) {
+  try {
+    return 'wss:' === new URL(string).protocol;
+  } catch (err) {
+    return false;
+  }
+}
+
 function handleRecommendServer(evt, relay) {
-  if (feedDomMap[evt.id]) {
+  if (feedDomMap[evt.id] || !isWssUrl(evt.content)) {
     return;
   }
   const art = renderRecommendServer(evt, relay);
   if (textNoteList.length < 2) {
     feedContainer.append(art);
-    return;
+  } else {
+    const closestTextNotes = textNoteList.sort(sortEventCreatedAt(evt.created_at));
+    feedDomMap[closestTextNotes[0].id].after(art);
   }
-  const closestTextNotes = textNoteList.sort(sortEventCreatedAt(evt.created_at));
-  feedDomMap[closestTextNotes[0].id].after(art);
   feedDomMap[evt.id] = art;
 }
 
