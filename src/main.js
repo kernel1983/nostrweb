@@ -257,7 +257,10 @@ document.body.addEventListener('click', (e) => {
 
 const textNoteList = []; // could use indexDB
 const eventRelayMap = {}; // eventId: [relay1, relay2]
+
 const hasEventTag = tag => tag[0] === 'e';
+const isReply = ([tag, , , marker]) => tag === 'e' && marker !== 'mention';
+const isMention = ([tag, , , marker]) => tag === 'e' && marker === 'mention';
 
 function handleTextNote(evt, relay) {
   if (eventRelayMap[evt.id]) {
@@ -273,7 +276,27 @@ function handleTextNote(evt, relay) {
   }
 }
 
-const replyList = []; // could use textNoteList with isReply field
+const replyList = [];
+const replyDomMap = {};
+const replyToMap = {};
+
+function handleReply(evt, relay) {
+  if (
+    replyDomMap[evt.id] // already rendered probably received from another relay
+    || evt.tags.some(isMention) // ignore mentions for now
+  ) {
+    return;
+  }
+  if (!replyToMap[evt.id]) {
+    replyToMap[evt.id] = getReplyTo(evt);
+  }
+  replyList.push({
+    replyTo: replyToMap[evt.id],
+    ...evt,
+  });
+  renderReply(evt, relay);
+}
+
 const reactionMap = {};
 
 const getReactionList = (id) => {
@@ -313,7 +336,6 @@ function handleReaction(evt, relay) {
 // feed
 const feedContainer = document.querySelector('#homefeed');
 const feedDomMap = {};
-const replyDomMap = {};
 const restoredReplyTo = localStorage.getItem('reply_to');
 
 const sortByCreatedAt = (evt1, evt2) => {
@@ -434,7 +456,8 @@ function linkPreview(href, id, relay) {
 }
 
 function createTextNote(evt, relay) {
-  const {host, img, isReply, name, replies, time, userName} = getMetadata(evt, relay);
+  const {host, img, name, time, userName} = getMetadata(evt, relay);
+  const replies = replyList.filter(({replyTo}) => replyTo === evt.id);
   // const isLongContent = evt.content.trimRight().length > 280;
   // const content = isLongContent ? evt.content.slice(0, 280) : evt.content;
   const hasReactions = reactionMap[evt.id]?.length > 0;
@@ -446,7 +469,6 @@ function createTextNote(evt, relay) {
       className: 'mbox-header',
       title: `User: ${userName}\n${time}\n\nUser pubkey: ${evt.pubkey}\n\nRelay: ${host}\n\nEvent-id: ${evt.id}
       ${evt.tags.length ? `\nTags ${JSON.stringify(evt.tags)}\n` : ''}
-      ${isReply ? `\nReply to ${evt.tags[0][1]}\n` : ''}
       ${evt.content}`
     }, [
       elem('small', {}, [
@@ -473,7 +495,6 @@ function createTextNote(evt, relay) {
         elem('small', {data: {reactions: ''}}, hasReactions ? reactionMap[evt.id].length : ''),
       ]),
     ]),
-    // replies[0] ? elem('div', {className: 'mobx-replies'}, replyFeed.reverse()) : '',
   ]);
   if (restoredReplyTo === evt.id) {
     appendReplyForm(body.querySelector('.buttons'));
@@ -481,22 +502,13 @@ function createTextNote(evt, relay) {
   }
   return renderArticle([
     elem('div', {className: 'mbox-img'}, [img]), body,
-    replies[0] ? elem('div', {className: 'mobx-replies'}, replyFeed.reverse()) : '',
+    replies[0] ? elem('div', {className: 'mobx-replies'}, replyFeed.sort(sortByCreatedAt).reverse()) : '',
   ], {data: {id: evt.id, pubkey: evt.pubkey, relay}});
 }
 
-function handleReply(evt, relay) {
-  if (replyDomMap[evt.id]) {
-    console.log('CALL ME already have reply in replyDomMap', evt, relay);
-    return;
-  }
-  replyList.push(evt);
-  renderReply(evt, relay);
-}
-
 function renderReply(evt, relay) {
-  const eventId = evt.tags.filter(hasEventTag)[0][1]; // TODO: should check for 'reply' marker with fallback to 'root' marker or last 'e' tag, see nip-10
-  const article = feedDomMap[eventId] || replyDomMap[eventId];
+  const replyToId = replyToMap[evt.id];
+  const article = feedDomMap[replyToId] || replyDomMap[replyToId];
   if (!article) { // root article has not been rendered
     return;
   }
@@ -707,10 +719,29 @@ function getMetadata(evt, relay) {
     src: userImg,
     title: `${userName} on ${host} ${userAbout}`,
   }) : elemCanvas(evt.pubkey);
-  const isReply = evt.tags.some(hasEventTag);
-  const replies = replyList.filter(({tags}) => tags.filter(hasEventTag).some(reply => reply[1] === evt.id)); // TODO: nip-10
+  const isReply = !!replyToMap[evt.id];
   const time = new Date(evt.created_at * 1000);
-  return {host, img, isReply, name, replies, time, userName};
+  return {host, img, isReply, name, time, userName};
+}
+
+/**
+ * find reply-to ID according to nip-10, find marked reply or root tag or
+ * fallback to positional (last) e tag or return null
+ * @param {event} evt
+ * @returns replyToID | null
+ */
+function getReplyTo(evt) {
+  const eventTags = evt.tags.filter(isReply);
+  const withReplyMarker = eventTags.filter(([, , , marker]) => marker === 'reply');
+  if (withReplyMarker.length === 1) {
+    return withReplyMarker[0][1];
+  }
+  const withRootMarker = eventTags.filter(([, , , marker]) => marker === 'root');
+  if (withReplyMarker.length === 0 && withRootMarker.length === 1) {
+    return withRootMarker[0][1];
+  }
+  // fallback to deprecated positional 'e' tags (nip-10)
+  return eventTags.length ? eventTags.at(-1)[1] : null;
 }
 
 const writeForm = document.querySelector('#writeForm');
