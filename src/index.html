@@ -84,6 +84,14 @@
             </div>
           </form>
           <form action="#" name="options">
+            <label for="filterDifficulty">
+               difficulty filter<br>
+              <small>
+                hide text notes with mining proof lower
+                than:&nbsp;<span data-display="filter_difficulty"></span>. a zero value shows all notes.
+              </small>
+            </label>
+            <input type="range" name="filter_difficulty" step="1" min="0" max="32" id="filterDifficulty" value="0">
             <label class="number" for="miningTarget">
               <span>
                 mining difficulty<br>
@@ -94,7 +102,7 @@
                   <a href="https://github.com/nostr-protocol/nips/blob/master/13.md" target="_blank" rel="noopener noreferrer">proof of work (nip-13)</a>.
                 </small>
               </span>
-              <input type="number" name="mining_target" step="1" min="0" max="256" id="miningTarget" value="16">
+              <input type="number" name="mining_target" step="1" min="0" max="32" id="miningTarget" value="16">
             </label>
             <label class="number" for="miningTimeout">
               <span>

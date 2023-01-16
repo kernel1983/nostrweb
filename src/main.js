@@ -324,7 +324,9 @@ const sortByCreatedAt = (evt1, evt2) => {
 };
 
 function renderFeed() {
-  const sortedFeeds = textNoteList.sort(sortByCreatedAt).reverse();
+  const sortedFeeds = textNoteList
+    .filter(note => !fitlerDifficulty || note.tags.some(([tag, , commitment]) => tag === 'nonce' && commitment >= fitlerDifficulty))
+    .sort(sortByCreatedAt).reverse();
   sortedFeeds.forEach((evt, i) => {
     if (feedDomMap[evt.id]) {
       // TODO check eventRelayMap if event was published to different relays
@@ -338,6 +340,13 @@ function renderFeed() {
     }
     feedDomMap[evt.id] = article;
   });
+}
+
+function rerenderFeed() {
+  Object.keys(feedDomMap).forEach(key => delete feedDomMap[key]);
+  Object.keys(replyDomMap).forEach(key => delete replyDomMap[key]);
+  feedContainer.replaceChildren([]);
+  renderFeed();
 }
 
 setInterval(() => {
@@ -516,7 +525,9 @@ function handleRecommendServer(evt, relay) {
   if (textNoteList.length < 2) {
     feedContainer.append(art);
   } else {
-    const closestTextNotes = textNoteList.sort(sortEventCreatedAt(evt.created_at));
+    const closestTextNotes = textNoteList
+      .filter(note => !fitlerDifficulty || note.tags.some(([tag, , commitment]) => tag === 'nonce' && commitment >= fitlerDifficulty))
+      .sort(sortEventCreatedAt(evt.created_at));
     feedDomMap[closestTextNotes[0].id].after(art);
   }
   feedDomMap[evt.id] = art;
@@ -757,6 +768,18 @@ function hideNewMessage(hide) {
   unlockScroll();
   newMessageDiv.hidden = hide;
 }
+
+let fitlerDifficulty = JSON.parse(localStorage.getItem('filter_difficulty')) ?? 0;
+const filterDifficultyInput = document.querySelector('#filterDifficulty');
+const filterDifficultyDisplay = document.querySelector('[data-display="filter_difficulty"]');
+filterDifficultyInput.addEventListener('input', (e) => {
+  localStorage.setItem('filter_difficulty', filterDifficultyInput.valueAsNumber);
+  fitlerDifficulty = filterDifficultyInput.valueAsNumber;
+  filterDifficultyDisplay.textContent = filterDifficultyInput.value;
+  rerenderFeed();
+});
+filterDifficultyInput.value = fitlerDifficulty;
+filterDifficultyDisplay.textContent = filterDifficultyInput.value;
 
 // arbitrary difficulty default, still experimenting.
 let difficulty = JSON.parse(localStorage.getItem('mining_target')) ?? 16;
