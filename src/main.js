@@ -324,7 +324,10 @@ const sortByCreatedAt = (evt1, evt2) => {
 };
 
 function renderFeed() {
+  const now = Math.floor(Date.now() * 0.001);
   const sortedFeeds = textNoteList
+    // dont render notes from the future
+    .filter(note => note.created_at < now)
     .filter(note => !fitlerDifficulty || note.tags.some(([tag, , commitment]) => tag === 'nonce' && commitment >= fitlerDifficulty))
     .sort(sortByCreatedAt).reverse();
   sortedFeeds.forEach((evt, i) => {
