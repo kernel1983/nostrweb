@@ -328,7 +328,12 @@ function renderFeed() {
   const sortedFeeds = textNoteList
     // dont render notes from the future
     .filter(note => note.created_at < now)
-    .filter(note => !fitlerDifficulty || note.tags.some(([tag, , commitment]) => tag === 'nonce' && commitment >= fitlerDifficulty))
+    // if difficulty filter is configured dont render notes with too little pow
+    .filter(note => {
+      return !fitlerDifficulty || note.tags.some(([tag, , commitment]) => {
+        return tag === 'nonce' && commitment >= fitlerDifficulty && zeroLeadingBitsCount(note.id) >= fitlerDifficulty;
+      });
+    })
     .sort(sortByCreatedAt).reverse();
   sortedFeeds.forEach((evt, i) => {
     if (feedDomMap[evt.id]) {
