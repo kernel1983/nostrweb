@@ -1046,7 +1046,7 @@ function promptError(error, options = {}) {
   lockScroll();
   errorOverlay.replaceChildren(
     elem('h1', {className: 'error-title'}, error),
-    elem('p', {}, 'something went wrong'),
+    elem('p', {}, 'time ran out finding a proof with the desired mining difficulty. either try again, lower the mining difficulty or increase the timeout in profile settings.'),
     elem('div', {className: 'buttons'}, [
       onCancel ? elem('button', {data: {action: 'close'}}, 'close') : '',
       onAgain ? elem('button', {data: {action: 'again'}}, 'try again') : '',

@@ -1,6 +1,7 @@
 #errorOverlay {
   background: var(--bgcolor-danger);
   bottom: 0;
+  color: var(--color-danger);
   display: flex;
   flex-direction: column;
   left: 0;
@@ -17,8 +18,9 @@
 }
 
 #errorOverlay button {
-  background-color: rgba(0 0 0 / .5);
+  background-color: var(--bgcolor-danger-input);
   border: none;
+  color: var(--color-danger);
   display: inline-block;
 }
 #errorOverlay button:focus {

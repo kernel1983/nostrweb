@@ -32,11 +32,13 @@
   html {
     --bgcolor: #fdfefa;
     --bgcolor-accent: #7badfc;
+    --bgcolor-danger: rgb(225, 40, 40);
+    --bgcolor-danger-input: rgba(255 255 255 / .85);
     --bgcolor-inactive: #bababa;
     --bgcolor-textinput: #fff;
     --color: rgb(68 68 68);
     --color-accent: rgb(16, 93, 176);
-    --bgcolor-danger: rgb(255, 80, 80);
+    --color-danger: #0e0e0e;
   }
 }
 
@@ -44,11 +46,13 @@
   html {
     --bgcolor: #191919;
     --bgcolor-accent: rgb(16, 93, 176);
+    --bgcolor-danger: rgb(169, 0, 0);
+    --bgcolor-danger-input: rgba(0 0 0 / .5);
     --bgcolor-inactive: #434343;
     --bgcolor-textinput: #0e0e0e;
     --color: #e3e3e3;
     --color-accent: #7b7b7b;
-    --bgcolor-danger: rgb(169, 0, 0);
+    --color-danger: #e3e3e3;
   }
 
   img {
