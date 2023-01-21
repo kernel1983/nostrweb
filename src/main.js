@@ -1,5 +1,6 @@
 import {relayPool, generatePrivateKey, getPublicKey, signEvent} from 'nostr-tools';
-import {zeroLeadingBitsCount} from './cryptoutils';
+import {bounce} from './utils.js';
+import {zeroLeadingBitsCount} from './cryptoutils.js';
 import {elem, parseTextContent} from './domutil.js';
 import {dateTime, formatTime} from './timeutil.js';
 // curl -H 'accept: application/nostr+json' https://relay.nostr.ch/
@@ -262,6 +263,33 @@ const hasEventTag = tag => tag[0] === 'e';
 const isReply = ([tag, , , marker]) => tag === 'e' && marker !== 'mention';
 const isMention = ([tag, , , marker]) => tag === 'e' && marker === 'mention';
 
+const renderFeed = bounce(() => {
+  const now = Math.floor(Date.now() * 0.001);
+  const sortedFeeds = textNoteList
+    // dont render notes from the future
+    .filter(note => note.created_at < now)
+    // if difficulty filter is configured dont render notes with too little pow
+    .filter(note => {
+      return !fitlerDifficulty || note.tags.some(([tag, , commitment]) => {
+        return tag === 'nonce' && commitment >= fitlerDifficulty && zeroLeadingBitsCount(note.id) >= fitlerDifficulty;
+      });
+    })
+    .sort(sortByCreatedAt).reverse();
+  sortedFeeds.forEach((evt, i) => {
+    if (feedDomMap[evt.id]) {
+      // TODO check eventRelayMap if event was published to different relays
+      return;
+    }
+    const article = createTextNote(evt, eventRelayMap[evt.id]);
+    if (i === 0) {
+      feedContainer.append(article);
+    } else {
+      feedDomMap[sortedFeeds[i - 1].id].before(article);
+    }
+    feedDomMap[evt.id] = article;
+  });
+}, 17); // (16.666 rounded, a bit arbitrary but that it doesnt update more than 60x per s)
+
 function handleTextNote(evt, relay) {
   if (eventRelayMap[evt.id]) {
     eventRelayMap[evt.id] = [relay, ...(eventRelayMap[evt.id])];
@@ -344,33 +372,6 @@ const sortByCreatedAt = (evt1, evt2) => {
   }
   return evt1.created_at > evt2.created_at ? -1 : 1;
 };
-
-function renderFeed() {
-  const now = Math.floor(Date.now() * 0.001);
-  const sortedFeeds = textNoteList
-    // dont render notes from the future
-    .filter(note => note.created_at < now)
-    // if difficulty filter is configured dont render notes with too little pow
-    .filter(note => {
-      return !fitlerDifficulty || note.tags.some(([tag, , commitment]) => {
-        return tag === 'nonce' && commitment >= fitlerDifficulty && zeroLeadingBitsCount(note.id) >= fitlerDifficulty;
-      });
-    })
-    .sort(sortByCreatedAt).reverse();
-  sortedFeeds.forEach((evt, i) => {
-    if (feedDomMap[evt.id]) {
-      // TODO check eventRelayMap if event was published to different relays
-      return;
-    }
-    const article = createTextNote(evt, eventRelayMap[evt.id]);
-    if (i === 0) {
-      feedContainer.append(article);
-    } else {
-      feedDomMap[sortedFeeds[i - 1].id].before(article);
-    }
-    feedDomMap[evt.id] = article;
-  });
-}
 
 function rerenderFeed() {
   Object.keys(feedDomMap).forEach(key => delete feedDomMap[key]);
@@ -548,7 +549,7 @@ function handleRecommendServer(evt, relay) {
     const closestTextNotes = textNoteList
       .filter(note => !fitlerDifficulty || note.tags.some(([tag, , commitment]) => tag === 'nonce' && commitment >= fitlerDifficulty))
       .sort(sortEventCreatedAt(evt.created_at));
-    feedDomMap[closestTextNotes[0].id].after(art);
+    feedDomMap[closestTextNotes[0].id]?.after(art); // TODO: note might not be in the dom yet, recommendedServers could be controlled by renderFeed
   }
   feedDomMap[evt.id] = art;
 }
