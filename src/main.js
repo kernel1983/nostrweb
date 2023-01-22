@@ -267,7 +267,7 @@ const renderFeed = bounce(() => {
   const now = Math.floor(Date.now() * 0.001);
   const sortedFeeds = textNoteList
     // dont render notes from the future
-    .filter(note => note.created_at < now)
+    .filter(note => note.created_at <= now)
     // if difficulty filter is configured dont render notes with too little pow
     .filter(note => {
       return !fitlerDifficulty || note.tags.some(([tag, , commitment]) => {
