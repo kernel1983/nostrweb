@@ -1,6 +1,8 @@
 /* https://developer.mozilla.org/en-US/docs/Web/CSS/Layout_cookbook/Media_objects */
 .mbox {
   --profileimg-size: 4rem;
+  --profileimg-size-half: 2rem;
+  --profileimg-size-quarter: 1rem;
   align-items: center;
   display: flex;
   flex-direction: row;
@@ -24,14 +26,11 @@
   align-self: start;
   background-color: var(--bgcolor-textinput);
   border-radius: var(--profileimg-size);
-  border: 1px solid transparent;
   flex-basis: var(--profileimg-size);
   height: var(--profileimg-size);
-  margin-right: 1rem;
-  /* padding-top: .5ch; */
+  margin-right: 1.5rem;
   max-height: var(--profileimg-size);
   max-width: var(--profileimg-size);
-  outline: .5rem solid var(--bgcolor);
   overflow: hidden;
   position: relative;
   z-index: 2;
@@ -111,18 +110,64 @@
   flex-grow: 1;
   position: relative;
 }
+.mobx-replies .mobx-replies {
+  --reply-padding: 3rem;
+  margin-bottom: 2px;
+  padding: 0 1rem 0 var(--reply-padding);
+}
+.mobx-replies .mobx-replies .mobx-replies {
+  --reply-padding: 0;
+}
 .mbox .mbox::before,
 .mobx-replies::before {
   background-color: var(--bgcolor-inactive);
   border: none;
   content: "";
   display: block;
+  height: 200vh;
+  left: var(--profileimg-size-half);
+  margin-left: -.2rem;
+  position: absolute;
+  top: -200vh;
+  width: .4rem;
+}
+.mobx-replies .mbox .mbox::before {
+  background: none;
+  border-color: var(--bgcolor-inactive);;
+  border-style: solid;
+  border-width: 0 0 .4rem .4rem;
+  content: "";
+  display: block;
+  height: var(--profileimg-size-quarter);
+  left: calc(-1 * var(--profileimg-size-quarter));
+  margin-left: -.2rem;
+  position: absolute;
+  top: 0;
+  width: .8rem;
+}
+.mobx-replies .mbox .mbox::after {
+  background-color: var(--bgcolor-inactive);
+  border: none;
+  content: "";
+  display: block;
   height: 100vh;
-  left: calc(.5 * var(--profileimg-size));
+  left: calc(-1 * var(--profileimg-size-quarter));
   margin-left: -.2rem;
   position: absolute;
   top: -100vh;
   width: .4rem;
+}
+/* support visualisation of 3 levels of thread nesting, rest render flat without line */
+.mbox .mobx-replies .mobx-replies::before,
+.mobx-replies .mobx-replies .mbox .mbox::before {
+  content: none;
+}
+.mobx-replies .mbox .mbox .mbox-img {
+  --profileimg-size: 2rem;
+  left: -.2rem;
+  margin-right: .5rem;
+  margin-top: .2rem;
+  position: relative;
 }
 
 [data-append]::after {
