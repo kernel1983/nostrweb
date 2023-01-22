@@ -463,7 +463,7 @@ function createTextNote(evt, relay) {
   // const content = isLongContent ? evt.content.slice(0, 280) : evt.content;
   const hasReactions = reactionMap[evt.id]?.length > 0;
   const didReact = hasReactions && !!reactionMap[evt.id].find(reaction => reaction.pubkey === pubkey);
-  const replyFeed = replies[0] ? replies.map(e => replyDomMap[e.id] = createTextNote(e, relay)) : [];
+  const replyFeed = replies[0] ? replies.sort(sortByCreatedAt).map(e => replyDomMap[e.id] = createTextNote(e, relay)) : [];
   const [content, {firstLink}] = parseTextContent(evt.content);
   const body = elem('div', {className: 'mbox-body'}, [
     elem('header', {
@@ -503,7 +503,7 @@ function createTextNote(evt, relay) {
   }
   return renderArticle([
     elem('div', {className: 'mbox-img'}, [img]), body,
-    replies[0] ? elem('div', {className: 'mobx-replies'}, replyFeed.sort(sortByCreatedAt).reverse()) : '',
+    replies[0] ? elem('div', {className: 'mobx-replies'}, replyFeed.reverse()) : '',
   ], {data: {id: evt.id, pubkey: evt.pubkey, relay}});
 }
 
