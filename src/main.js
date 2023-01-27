@@ -132,7 +132,7 @@ function subProfile(pubkey) {
     filter: {
       authors: [pubkey],
       kinds: [1],
-      limit: 150,
+      limit: 450,
     }
   }));
 }
