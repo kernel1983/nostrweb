@@ -9,6 +9,7 @@ const pool = relayPool();
 pool.addRelay('wss://relay.nostr.info', {read: true, write: true});
 pool.addRelay('wss://nostr.openchain.fr', {read: true, write: true});
 pool.addRelay('wss://relay.damus.io', {read: true, write: true});
+pool.addRelay('wss://relay.snort.social', {read: true, write: true});
 pool.addRelay('wss://eden.nostr.land', {read: true, write: true});
 pool.addRelay('wss://relay.nostr.ch', {read: true, write: true});
 
