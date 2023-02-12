@@ -1,4 +1,6 @@
-import {relayPool, generatePrivateKey, getPublicKey, signEvent} from 'nostr-tools';
+// import {relayPool, generatePrivateKey, getPublicKey, signEvent} from 'nostr-tools';
+import {relayPool} from 'nostr-tools';
+import {generatePrivateKey, getPublicKey, signEvent, getEventHash} from './eth.js';
 import {bounce} from './utils.js';
 import {zeroLeadingBitsCount} from './cryptoutils.js';
 import {elem, parseTextContent} from './domutil.js';
@@ -10,12 +12,13 @@ const pool = relayPool();
 // pool.addRelay('wss://relay.damus.io', {read: true, write: true});
 // pool.addRelay('wss://relay.snort.social', {read: true, write: true});
 
-pool.addRelay('wss://relay.nostr.ch', {read: true, write: true});
-pool.addRelay('wss://nostr.openchain.fr', {read: true, write: true});
-pool.addRelay('wss://eden.nostr.land', {read: true, write: true});
-pool.addRelay('wss://nostr.einundzwanzig.space', {read: true, write: true});
-pool.addRelay('wss://relay.nostrich.de', {read: true, write: true});
-pool.addRelay('wss://nostr.cercatrova.me', {read: true, write: true});
+// pool.addRelay('wss://relay.nostr.ch', {read: true, write: true});
+// pool.addRelay('wss://nostr.openchain.fr', {read: true, write: true});
+// pool.addRelay('wss://eden.nostr.land', {read: true, write: true});
+// pool.addRelay('wss://nostr.einundzwanzig.space', {read: true, write: true});
+// pool.addRelay('wss://relay.nostrich.de', {read: true, write: true});
+// pool.addRelay('wss://nostr.cercatrova.me', {read: true, write: true});
+pool.addRelay('ws://127.0.0.1:8002', {read: true, write: true});
 
 function onEvent(evt, relay) {
   switch (evt.kind) {
@@ -911,13 +914,22 @@ writeForm.addEventListener('submit', async (e) => {
     hideNewMessage(true);
   };
   const tags = replyTo ? [['e', replyTo, eventRelayMap[replyTo][0]]] : [];
-  const newEvent = await powEvent({
+  // const newEvent = await powEvent({
+  //   kind: 1,
+  //   content,
+  //   pubkey,
+  //   tags,
+  //   created_at: Math.floor(Date.now() * 0.001),
+  // }, {difficulty, statusElem: sendStatus, timeout}).catch(console.warn);
+  const newEvent = {
     kind: 1,
     content,
     pubkey,
     tags,
     created_at: Math.floor(Date.now() * 0.001),
-  }, {difficulty, statusElem: sendStatus, timeout}).catch(console.warn);
+  };
+  // newEvent.id = getEventHash(newEvent).replace('0x', '');
+  // console.log('newEvent.id', newEvent.id);
   if (!newEvent) {
     close();
     return;

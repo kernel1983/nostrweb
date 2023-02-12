@@ -13,5 +13,8 @@
   "scripts": {
     "build": "node tools/build.js",
     "serve": "node tools/serve.js"
+  },
+  "dependencies": {
+    "ethers": "6.0.2"
   }
 }
