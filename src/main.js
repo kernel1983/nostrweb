@@ -928,8 +928,8 @@ writeForm.addEventListener('submit', async (e) => {
     tags,
     created_at: Math.floor(Date.now() * 0.001),
   };
-  // newEvent.id = getEventHash(newEvent).replace('0x', '');
-  // console.log('newEvent.id', newEvent.id);
+  newEvent.id = getEventHash(newEvent).replace('0x', '');
+  console.log('newEvent.id', newEvent.id);
   if (!newEvent) {
     close();
     return;
